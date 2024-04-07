@@ -38,8 +38,9 @@ def main():
 
     # recover valid paths, domains, classes
     # this will output the domain conversion (D1 -> 8, et cetera) and the label list
+    #so for D1-D1 .> source_domain =8, target_domain = 8
     num_classes, valid_labels, source_domain, target_domain = utils.utils.get_domains_and_labels(args)
-    print("num_classes, valid_labels, source_domain, target_domain = ", num_classes, valid_labels, source_domain, target_domain) 
+    #num_classes, valid_labels, source_domain, target_domain =  8 [0, 1, 2, 3, 4, 5, 6, 7] 8 8
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     models = {}
@@ -47,11 +48,20 @@ def main():
     test_augmentations = {}
     logger.info("Instantiating models per modality")
     for m in modalities:
+        
+        #num_classes = 8
+        #i found all of these in I3D_save_feat.yaml
+        #m is 'RGB' 
+        #args.models[m].model is I3D 
+        #kwargs: {}
+        #train_augmentations[m], test_augmentations[m] are just augmentations of I3D in aml23-ego/models/I3D.py
+        
         logger.info('{} Net\tModality: {}'.format(args.models[m].model, m))
-        print("m, args.models[m], **args.models[m].kwargs =" , m, args.models[m], **args.models[m].kwargs )
         models[m] = getattr(model_list, args.models[m].model)(num_classes, m, args.models[m], **args.models[m].kwargs)
+        # so then models contains RGB as key and model I3D instantianed as a key
+        #models = {'RGB' : I3D } 
+        
         train_augmentations[m], test_augmentations[m] = models[m].get_augmentation(m)
-        print("train_augmentations[m], test_augmentations[m]", train_augmentations[m], test_augmentations[m] )
 
     action_classifier = tasks.ActionRecognition("action-classifier", models, 1,
                                                 args.total_batch, args.models_dir, num_classes,
@@ -101,19 +111,27 @@ def save_feat(model, loader, device, it, num_classes):
     # Iterate over the models
     with torch.no_grad():
         for i_val, (data, label, video_name, uid) in enumerate(loader):
-            print("i_val, (data, label, video_name, uid)", i_val, (data, label, video_name, uid) )
+            # i_val 0
+            #data ({'RGB': tensor([[[[-0.5686, -0.5686, -0.5608,  ...
+            #label tensor([0]), 
+            #video_name ('P08_09',)
+            #uid tensor([13744]))
+
             label = label.to(device)
 
-            for m in modalities:
+            for m in modalities: #m is 'RGB'
+                #batch, _, height, width = (0,1,2,3) the dimensions (idk what 1 is here but it does not matter)
                 batch, _, height, width = data[m].shape
                 data[m] = data[m].reshape(batch, args.save.num_clips,
                                           args.save.num_frames_per_clip[m], -1, height, width)
+                #now batch, n_clips_perVid, n_frames_perClip, idk-1, height, width = (0,1,2,3,4,5)
                 data[m] = data[m].permute(1, 0, 3, 2, 4, 5)
-
+                 #now n_clips_perVid, batch,  idk-1, n_frames_perClip, height, width = (0,1,2,3,4,5)
+            
                 logits[m] = torch.zeros((args.save.num_clips, batch, num_classes)).to(device)
                 features[m] = torch.zeros((args.save.num_clips, batch, model.task_models[m]
                                            .module.feat_dim)).to(device)
-                
+                print"(logits, features ->",logits, features)
             clip = {}
             for i_c in range(args.save.num_clips):
                 for m in modalities:
