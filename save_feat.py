@@ -64,11 +64,11 @@ def main():
     if args.action == "save":
         augmentations = {"train": train_augmentations, "test": test_augmentations}
         # the only action possible with this script is "save"
-        print("args.dataset.shift.split("-")[1], modalities,
+        print(" modalities,
                                                                  args.split, args.dataset,
                                                                  args.save.num_frames_per_clip,
                                                                  args.save.num_clips, args.save.dense_sampling,
-                                                                 augmentations[args.split]..", args.dataset.shift.split("-")[1], modalities,
+                                                                 augmentations[args.split]..", modalities,
                                                                  args.split, args.dataset,
                                                                  args.save.num_frames_per_clip,
                                                                  args.save.num_clips, args.save.dense_sampling,
