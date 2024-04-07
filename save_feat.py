@@ -131,7 +131,7 @@ def save_feat(model, loader, device, it, num_classes):
                 logits[m] = torch.zeros((args.save.num_clips, batch, num_classes)).to(device)
                 features[m] = torch.zeros((args.save.num_clips, batch, model.task_models[m]
                                            .module.feat_dim)).to(device)
-                print"(logits, features ->",logits, features)
+                print("logits, features ->",logits, features)
             clip = {}
             for i_c in range(args.save.num_clips):
                 for m in modalities:
