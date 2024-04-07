@@ -23,8 +23,7 @@ def init_operations():
     parse all the arguments, generate the logger, check gpus to be used and wandb
     """
     logger.info("Feature Extraction")
-    logger.info("Running with parameters: " + pformat_dict(args, indent=1)) #this takes it from configs/default.yaml and configs/I3D_save_feat.yaml
-
+    logger.info("Running with parameters: " + pformat_dict(args, indent=1))
 
     if args.gpus is not None:
         logger.debug('Using only these GPUs: {}'.format(args.gpus))
@@ -39,7 +38,6 @@ def main():
     # recover valid paths, domains, classes
     # this will output the domain conversion (D1 -> 8, et cetera) and the label list
     num_classes, valid_labels, source_domain, target_domain = utils.utils.get_domains_and_labels(args)
-    print("num_classes, valid_labels, source_domain, target_domain = ", num_classes, valid_labels, source_domain, target_domain) 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     models = {}
@@ -48,10 +46,8 @@ def main():
     logger.info("Instantiating models per modality")
     for m in modalities:
         logger.info('{} Net\tModality: {}'.format(args.models[m].model, m))
-        print("m, args.models[m], **args.models[m].kwargs =" , m, args.models[m], **args.models[m].kwargs )
         models[m] = getattr(model_list, args.models[m].model)(num_classes, m, args.models[m], **args.models[m].kwargs)
         train_augmentations[m], test_augmentations[m] = models[m].get_augmentation(m)
-        print("train_augmentations[m], test_augmentations[m]", train_augmentations[m], test_augmentations[m] )
 
     action_classifier = tasks.ActionRecognition("action-classifier", models, 1,
                                                 args.total_batch, args.models_dir, num_classes,
@@ -60,14 +56,9 @@ def main():
     if args.resume_from is not None:
         action_classifier.load_last_model(args.resume_from)
 
-    prints("train_augmentations,test_augmentations",train_augmentations,test_augmentations)
     if args.action == "save":
         augmentations = {"train": train_augmentations, "test": test_augmentations}
         # the only action possible with this script is "save"
-        print(" modalities, args.split, args.dataset,args.save.num_frames_per_clip, args.save.num_clips, args.save.dense_sampling,augmentations[args.split]..", modalities,args.split, args.dataset,args.save.num_frames_per_clip,args.save.num_clips, args.save.dense_sampling,augmentations[args.split])
-
-
-        
         loader = torch.utils.data.DataLoader(EpicKitchensDataset(args.dataset.shift.split("-")[1], modalities,
                                                                  args.split, args.dataset,
                                                                  args.save.num_frames_per_clip,
@@ -101,7 +92,6 @@ def save_feat(model, loader, device, it, num_classes):
     # Iterate over the models
     with torch.no_grad():
         for i_val, (data, label, video_name, uid) in enumerate(loader):
-            print("i_val, (data, label, video_name, uid)", i_val, (data, label, video_name, uid) )
             label = label.to(device)
 
             for m in modalities:
@@ -113,7 +103,7 @@ def save_feat(model, loader, device, it, num_classes):
                 logits[m] = torch.zeros((args.save.num_clips, batch, num_classes)).to(device)
                 features[m] = torch.zeros((args.save.num_clips, batch, model.task_models[m]
                                            .module.feat_dim)).to(device)
-                
+
             clip = {}
             for i_c in range(args.save.num_clips):
                 for m in modalities:
