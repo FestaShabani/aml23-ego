@@ -70,7 +70,6 @@ def main():
     if args.resume_from is not None:
         action_classifier.load_last_model(args.resume_from)
 
-    print("train_augmentations,test_augmentations",train_augmentations,test_augmentations)
     if args.action == "save":
         augmentations = {"train": train_augmentations, "test": test_augmentations}
         # the only action possible with this script is "save"
@@ -126,28 +125,35 @@ def save_feat(model, loader, device, it, num_classes):
                                           args.save.num_frames_per_clip[m], -1, height, width)
                 #now batch, n_clips_perVid, n_frames_perClip, idk-1, height, width = (0,1,2,3,4,5)
                 data[m] = data[m].permute(1, 0, 3, 2, 4, 5)
+                
                  #now n_clips_perVid, batch,  idk-1, n_frames_perClip, height, width = (0,1,2,3,4,5)
-            
-                logits[m] = torch.zeros((args.save.num_clips, batch, num_classes)).to(device)
-                features[m] = torch.zeros((args.save.num_clips, batch, model.task_models[m]
+
+                
+                logits[m] = torch.zeros((args.save.num_clips, batch, num_classes)).to(device) #tensor with dimensions (num_clips, batch, num_classes)
+                features[m] = torch.zeros((args.save.num_clips, batch, model.task_models[m]  #tensor with dimensions (num_clips, batch, feat_dim)
                                            .module.feat_dim)).to(device)
-                print("logits, features ->",logits, features)
+                #print("logits, features ->",logits, features)
             clip = {}
             for i_c in range(args.save.num_clips):
                 for m in modalities:
-                    clip[m] = data[m][i_c].to(device)
+                    clip[m] = data[m][i_c].to(device) #clip["RGB"] = data["RGB"][0]
+            #the code above gets all the clips in input
 
-                output, feat = model(clip)
+                output, feat = model(clip) #model represents the trained neural network model, and clip contains the input data for each modality for a single clip. The model processes this input data through its layers, computes the output logits (predictions) and features, and returns them.
                 feat = feat["features"]
                 for m in modalities:
-                    logits[m][i_c] = output[m]
-                    features[m][i_c] = feat[m]
+                    logits[m][i_c] = output[m] #logits for current clip for the current modality
+                    features[m][i_c] = feat[m] #features for current clip for the current modality
             for m in modalities:
-                logits[m] = torch.mean(logits[m], dim=0)
-            for i in range(batch):
+                logits[m] = torch.mean(logits[m], dim=0) #It calculates the mean of the logits across all clips for that modality using torch.mean(logits[m], dim=0). This reduces the dimensionality of the logits tensor from (num_clips, batch_size, num_classes) to (batch_size, num_classes)
+            for i in range(batch): #For each sample in the batch, creates a dictionary with keys uid and video_name
                 sample = {"uid": int(uid[i].cpu().detach().numpy()), "video_name": video_name[i]}
+                #print("uid,video_name of current sample", sample)
                 for m in modalities:
                     sample["features_" + m] = features[m][:, i].cpu().detach().numpy()
+                #so now
+                print("uid,video_nameOfSample, [features_RGB]", sample)
+                #and results dict will contain all of those features for all the samples
                 results_dict["features"].append(sample)
             num_samples += batch
 
