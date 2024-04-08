@@ -40,6 +40,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
         self.stride = self.dataset_conf.stride
         self.additional_info = additional_info
 
+        #this was used to create train_val folder in github, which contains D1_test.pkl, D1_train.pkl ..(same for D2,D3)
         if self.mode == "train":
             pickle_name = split + "_train.pkl"
         elif kwargs.get('save', None) is not None:
@@ -47,22 +48,59 @@ class EpicKitchensDataset(data.Dataset, ABC):
         else:
             pickle_name = split + "_test.pkl"
 
-        self.list_file = pd.read_pickle(os.path.join(self.dataset_conf.annotations_path, pickle_name))
-        logger.info(f"Dataloader for {split}-{self.mode} with {len(self.list_file)} samples generated")
+                     
+    	"""
+        #self.list_file is a DataFrame that contains metadata about the video samples belonging to a specific split of the dataset, such as D1.
+        #This DataFrame could be like this:
+        #UID	Label	Untrimmed Video Name	Start Timestamp	End Timestamp	...
+        #1	        0	video1.mp4	                    0:05	    0:10	...
+        #2	        1	video2.mp4	                    0:00	    0:07	...
+
+        self.video_list  iterates over the rows of the DataFrame self.list_file.
+        For each row in self.list_file, tup represents a tuple containing the index and the row data.
+        Each tuple tup is passed to the EpicVideoRecord constructor along with self.dataset_conf.
+        In the end, self.video_list contains a list of EpicVideoRecord objects, each representing metadata about a single video sample in the dataset. 
+        example: self.video_list = [
+        EpicVideoRecord(index=0, row_data={'UID': 1, 'Label': 0, 'Untrimmed Video Name': 'video1.mp4', 'Start Timestamp': '0:05', 'End Timestamp': '0:10', ...}),
+        EpicVideoRecord(index=1, row_data={'UID': 2, 'Label': 1, 'Untrimmed Video Name': 'video2.mp4', 'Start Timestamp': '0:00', 'End Timestamp': '0:07', ...}),
+        ...]
+        transform represents a pipeline of transformations such as (an example)
+        transform = transforms.Compose([
+        transforms.Resize((224, 224)),    # Resize images to 224x224 pixels
+        transforms.RandomHorizontalFlip(),# Randomly flip images horizontally
+        transforms.ToTensor(),            # Convert images to PyTorch Tensors
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])  # Normalize images
+        ])
+        load_feat - bool of whether the dataset class loads raw frames(False) or pre-extracted features from the dataset(True).
+        This part could be as below:  model_features = pd.DataFrame...['features'])
+            uid features_RGB     features_Flow
+        0    1  [0.1, 0.2, 0.3]  [0.2, 0.3, 0.4]
+        1    2  [0.4, 0.5, 0.6]  [0.5, 0.6, 0.7]
+        2    3  [0.7, 0.8, 0.9]  [0.8, 0.9, 1.0]
+
+        Then model_features = pd.DataFrame...['features']) [["uid", "features_" + m]] prvoided m is RGB could be 
+            uid features_RGB
+        0    1  [0.1, 0.2, 0.3]
+        1    2  [0.4, 0.5, 0.6]
+        2    3  [0.7, 0.8, 0.9]
+        """             
+                     
+        self.list_file = pd.read_pickle(os.path.join(self.dataset_conf.annotations_path, pickle_name)) #this annotations_path=train_val is in I3D_save_feat.yaml, which will be the name of our folder that contains  the above pkl file. So this path would be train_val/D1_test  
+        logger.info(f"Dataloader for {split}-{self.mode} with {len(self.list_file)} samples generated") # example Dataloader for D1_test with 435 samples generated
         self.video_list = [EpicVideoRecord(tup, self.dataset_conf) for tup in self.list_file.iterrows()]
         self.transform = transform  # pipeline of transforms
         self.load_feat = load_feat
 
-        if self.load_feat:
-            self.model_features = None
-            for m in self.modalities:
+        if self.load_feat: #if True the dataset class will load pre-extracted features from the dataset instead of raw frames. The dataset class will load these pre-extracted features and pass them directly to the neural network model without the need for additional preprocessing.
+            self.model_features = None # model_features will hold the pre-extracted features.
+            for m in self.modalities: # iterates over the modalities to load the pre-extracted features.
                 # load features for each modality
-                model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features",
+                model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features", #it constructs a DataFrame from reading the pickle file saved_features/I3D_features_D1_test.pkl .. (ex I3D_features_16_dense_D1_test.pkl)
                                                                           self.dataset_conf[m].features_name + "_" +
                                                                           pickle_name))['features'])[["uid", "features_" + m]]
                 if self.model_features is None:
                     self.model_features = model_features
-                else:
+                else: #just merges if it is not non with inner join with rows matching uid
                     self.model_features = pd.merge(self.model_features, model_features, how="inner", on="uid")
 
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
