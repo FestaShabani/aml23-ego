@@ -209,7 +209,34 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
     
     def __getitem__(self, index):
+        """
+        record =  Given an index, it retrieves the corresponding EpicVideoRecord object from the self.video_list.
+        example: self.video_list = [
+        EpicVideoRecord(index=0, row_data={'UID': 1, 'Label': 0, 'Untrimmed Video Name': 'video1.mp4', 'Start Timestamp': '0:05', 'End Timestamp': '0:10', ...}),
+        EpicVideoRecord(index=1, row_data={'UID': 2, 'Label': 1, 'Untrimmed Video Name': 'video2.mp4', 'Start Timestamp': '0:00', 'End Timestamp': '0:07', ...}),
+        ...]
+        model_features=
+            uid features_RGB     features_Flow
+        0    1  [0.1, 0.2, 0.3]  [0.2, 0.3, 0.4]
+        1    2  [0.4, 0.5, 0.6]  [0.5, 0.6, 0.7]
+        2    3  [0.7, 0.8, 0.9]  [0.8, 0.9, 1.0]
 
+                      uid features_RGB   features_Flow
+        sample_row  = 1  [0.1, 0.2, 0.3] [0.2, 0.3, 0.4]
+        sample[features_RGB]  =    [0.1, 0.2, 0.3]
+
+        returns either sample, record.label, record.untrimmed_video_name, record.uid = 
+        sample = {
+        "RGB": [0.1, 0.2, 0.3],
+        "Flow": [0.4, 0.5, 0.6]
+        }
+        record.label = 0
+        record.untrimmed_video_name = "video1.mp4"
+        record.uid = 1
+
+        (or just the first two)
+        """
+        
         frames = {}
         label = None
         # record is a row of the pkl file containing one sample/action
@@ -217,9 +244,9 @@ class EpicKitchensDataset(data.Dataset, ABC):
         # all the properties of the sample easily
         record = self.video_list[index]
 
-        if self.load_feat:
+        if self.load_feat: # it loads pre-extracted features for the sample 
             sample = {}
-            sample_row = self.model_features[self.model_features["uid"] == int(record.uid)]
+            sample_row = self.model_features[self.model_features["uid"] == int(record.uid)] #filters the DataFrame self.model_features to retrieve the row corresponding to the UID of the record above.
             assert len(sample_row) == 1
             for m in self.modalities:
                 sample[m] = sample_row["features_" + m].values[0]
@@ -228,6 +255,19 @@ class EpicKitchensDataset(data.Dataset, ABC):
             else:
                 return sample, record.label
 
+        """ 
+        (training) index is the position of a specific frame.
+        segment_indices  will hold the sampled indices for each modality.
+        the indices for sampling frames are selected from within the range of possible frame indices in the video clip.
+        sample_{num_frames}:  represents the total number of frames in the video clip that are available for sampling.
+        then the start_index of the sample is added as an offset
+        For example, in the end:
+        segment_indices = {         #a dictionary that stores the sampled frame indices for each modality within a specific
+            'RGB': [10, 15, 20, 25, 30], 
+            'Flow': [5, 10, 15, 20, 25]
+        }
+        
+        """
         segment_indices = {}
         # notice that all indexes are sampled in the[0, sample_{num_frames}] range, then the start_index of the sample
         # is added as an offset
@@ -238,7 +278,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
             else:
                 # here the testing indexes are obtained with no randomization, i.e., centered
                 segment_indices[modality] = self._get_val_indices(record, modality)
-
+        #left here
         for m in self.modalities:
             img, label = self.get(m, record, segment_indices[m])
             frames[m] = img
