@@ -59,12 +59,24 @@ class EpicKitchensDataset(data.Dataset, ABC):
         self.video_list  iterates over the rows of the DataFrame self.list_file.
         For each row in self.list_file, tup represents a tuple containing the index and the row data.
         Each tuple tup is passed to the EpicVideoRecord constructor along with self.dataset_conf.
+        dataset_conf looks like below:
+        dataset:
+          annotations_path: train_val
+          shift: ??? #we configure this in the colab to be D1-D1
+          workers: 4
+          stride: 2
+          resolution: 224
+          RGB:
+            data_path: ??? #we configure this in the colab to be ../ek_data/frames
+            tmpl: "img_{:010d}.jpg"
+          Event:
+            rgb4e: 6
         In the end, self.video_list contains a list of EpicVideoRecord objects, each representing metadata about a single video sample in the dataset. 
         example: self.video_list = [
         EpicVideoRecord(index=0, row_data={'UID': 1, 'Label': 0, 'Untrimmed Video Name': 'video1.mp4', 'Start Timestamp': '0:05', 'End Timestamp': '0:10', ...}),
         EpicVideoRecord(index=1, row_data={'UID': 2, 'Label': 1, 'Untrimmed Video Name': 'video2.mp4', 'Start Timestamp': '0:00', 'End Timestamp': '0:07', ...}),
         ...]
-        transform represents a pipeline of transformations such as (an example)
+       transform represen ts a pipeline of transformations such as (an example)
         transform = transforms.Compose([
         transforms.Resize((224, 224)),    # Resize images to 224x224 pixels
         transforms.RandomHorizontalFlip(),# Randomly flip images horizontally
