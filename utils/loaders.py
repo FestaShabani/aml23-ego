@@ -278,7 +278,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
             else:
                 # here the testing indexes are obtained with no randomization, i.e., centered
                 segment_indices[modality] = self._get_val_indices(record, modality)
-        #left here
+
         for m in self.modalities:
             img, label = self.get(m, record, segment_indices[m])
             frames[m] = img
@@ -289,17 +289,66 @@ class EpicKitchensDataset(data.Dataset, ABC):
             return frames, label
 
     def get(self, modality, record, indices):
-        images = list()
+    """
+    images is a list that will store sampled frames
+    p - frame index
+    frame = the RGB image (as a list) at that specific index p
+    Finally images contains the list of of all RGB frames (img) of those specific indices of that specific record in that specific modality
+    Then all those images are transformed (for ex resized, normalized etc).
+    get returns these transformed images and the label of that specific video clip (record).
+    """
+
+        
+        images = list() 
         for frame_index in indices:
             p = int(frame_index)
             # here the frame is loaded in memory
-            frame = self._load_data(modality, record, p)
+            frame = self._load_data(modality, record, p) 
             images.extend(frame)
         # finally, all the transformations are applied
         process_data = self.transform[modality](images)
         return process_data, record.label
 
     def _load_data(self, modality, record, idx):
+        """
+        load_data is responsible for loading a single frame from a specified modality from the dataset.
+                record - can be like record = {
+                                                'uid': 12345,
+                                                'label': 1,
+                                                'untrimmed_video_name': 'video1.mp4',
+                                                'start_frame': 0,
+                                                'num_frames': {
+                                                    'RGB': 300,
+                                                    'Flow': 300,
+                                                    'Spec': 300,
+                                                    'Event': 300
+                                                },
+                                # Other metadata attributes as needed such as start timestamp and end timestamp
+                                            }
+        idx - index of the frame within the video CLIP
+        dataset.RGB.data_path=../ek_data/frames
+        
+        data_path = ../ek_data/frames
+        tmpl=   "img_{:010d}.jpg"
+
+        We have a video clip represented by record, which starts at record.start_frame and contains multiple frames. 
+        The idx represents the index of the frame within this specific video clip.
+        To find the index of the frame within the entire untrimmed video (so, not in the specificc clip).
+        Suppose: 
+        record.start_frame = 100: the video clip starts at frame index 100.
+        idx = 20: the 20th frame within this video clip.
+        idx_untrimmed = 100 + 20 = 120
+        The path of the image: something like ../ek_data/frames/img_0000000005.jpg
+        It opens the image and returns the RGB version of it in img
+
+        Explanation for the case when idx_untrimmed > max_idx_video:
+            Sometimes, due to various reasons such as missing frames or incomplete data, the frame indices in the dataset may not be contiguous.
+            In such cases, the maximum frame index found provides an upper bound for the available frames, allowing the code to handle situations where the dataset does not contain frames for every possible index
+            If the requested frame index exceeds the maximum available frame index, the code falls back to loading the image for the maximum available frame index. This ensures that even if the requested frame is not available, the code can still provide an image for the nearest available frame.
+            return [img] #returns a list with a single image
+        """
+      
+        
         data_path = self.dataset_conf[modality].data_path
         tmpl = self.dataset_conf[modality].tmpl
 
@@ -320,7 +369,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         .convert('RGB')
                 else:
                     raise FileNotFoundError
-            return [img]
+            return [img] 
         
         else:
             raise NotImplementedError("Modality not implemented")
