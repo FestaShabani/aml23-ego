@@ -40,7 +40,6 @@ class EpicKitchensDataset(data.Dataset, ABC):
         self.stride = self.dataset_conf.stride
         self.additional_info = additional_info
 
-        #this was used to create train_val folder in github, which contains D1_test.pkl, D1_train.pkl ..(same for D2,D3)
         if self.mode == "train":
             pickle_name = split + "_train.pkl"
         elif kwargs.get('save', None) is not None:
@@ -48,71 +47,22 @@ class EpicKitchensDataset(data.Dataset, ABC):
         else:
             pickle_name = split + "_test.pkl"
 
-                     
-    	"""
-        #self.list_file is a DataFrame that contains metadata about the video samples belonging to a specific split of the dataset, such as D1.
-        #This DataFrame could be like this:
-        #UID	Label	Untrimmed Video Name	Start Timestamp	End Timestamp	...
-        #1	        0	video1.mp4	                    0:05	    0:10	...
-        #2	        1	video2.mp4	                    0:00	    0:07	...
-
-        self.video_list  iterates over the rows of the DataFrame self.list_file.
-        For each row in self.list_file, tup represents a tuple containing the index and the row data.
-        Each tuple tup is passed to the EpicVideoRecord constructor along with self.dataset_conf.
-        dataset_conf looks like below:
-        dataset:
-          annotations_path: train_val
-          shift: ??? #we configure this in the colab to be D1-D1
-          workers: 4
-          stride: 2
-          resolution: 224
-          RGB:
-            data_path: ??? #we configure this in the colab to be ../ek_data/frames
-            tmpl: "img_{:010d}.jpg"
-          Event:
-            rgb4e: 6
-        In the end, self.video_list contains a list of EpicVideoRecord objects, each representing metadata about a single video sample in the dataset. 
-        example: self.video_list = [
-        EpicVideoRecord(index=0, row_data={'UID': 1, 'Label': 0, 'Untrimmed Video Name': 'video1.mp4', 'Start Timestamp': '0:05', 'End Timestamp': '0:10', ...}),
-        EpicVideoRecord(index=1, row_data={'UID': 2, 'Label': 1, 'Untrimmed Video Name': 'video2.mp4', 'Start Timestamp': '0:00', 'End Timestamp': '0:07', ...}),
-        ...]
-       transform represen ts a pipeline of transformations such as (an example)
-        transform = transforms.Compose([
-        transforms.Resize((224, 224)),    # Resize images to 224x224 pixels
-        transforms.RandomHorizontalFlip(),# Randomly flip images horizontally
-        transforms.ToTensor(),            # Convert images to PyTorch Tensors
-        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])  # Normalize images
-        ])
-        load_feat - bool of whether the dataset class loads raw frames(False) or pre-extracted features from the dataset(True).
-        This part could be as below:  model_features = pd.DataFrame...['features'])
-            uid features_RGB     features_Flow
-        0    1  [0.1, 0.2, 0.3]  [0.2, 0.3, 0.4]
-        1    2  [0.4, 0.5, 0.6]  [0.5, 0.6, 0.7]
-        2    3  [0.7, 0.8, 0.9]  [0.8, 0.9, 1.0]
-
-        Then model_features = pd.DataFrame...['features']) [["uid", "features_" + m]] prvoided m is RGB could be 
-            uid features_RGB
-        0    1  [0.1, 0.2, 0.3]
-        1    2  [0.4, 0.5, 0.6]
-        2    3  [0.7, 0.8, 0.9]
-        """             
-                     
-        self.list_file = pd.read_pickle(os.path.join(self.dataset_conf.annotations_path, pickle_name)) #this annotations_path=train_val is in I3D_save_feat.yaml, which will be the name of our folder that contains  the above pkl file. So this path would be train_val/D1_test  
-        logger.info(f"Dataloader for {split}-{self.mode} with {len(self.list_file)} samples generated") # example Dataloader for D1_test with 435 samples generated
+        self.list_file = pd.read_pickle(os.path.join(self.dataset_conf.annotations_path, pickle_name))
+        logger.info(f"Dataloader for {split}-{self.mode} with {len(self.list_file)} samples generated")
         self.video_list = [EpicVideoRecord(tup, self.dataset_conf) for tup in self.list_file.iterrows()]
         self.transform = transform  # pipeline of transforms
         self.load_feat = load_feat
 
-        if self.load_feat: #if True the dataset class will load pre-extracted features from the dataset instead of raw frames. The dataset class will load these pre-extracted features and pass them directly to the neural network model without the need for additional preprocessing.
-            self.model_features = None # model_features will hold the pre-extracted features.
-            for m in self.modalities: # iterates over the modalities to load the pre-extracted features.
+        if self.load_feat:
+            self.model_features = None
+            for m in self.modalities:
                 # load features for each modality
-                model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features", #it constructs a DataFrame from reading the pickle file saved_features/I3D_features_D1_test.pkl .. (ex I3D_features_16_dense_D1_test.pkl)
+                model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features",
                                                                           self.dataset_conf[m].features_name + "_" +
                                                                           pickle_name))['features'])[["uid", "features_" + m]]
                 if self.model_features is None:
                     self.model_features = model_features
-                else: #just merges if it is not non with inner join with rows matching uid
+                else:
                     self.model_features = pd.merge(self.model_features, model_features, how="inner", on="uid")
 
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
@@ -138,34 +88,43 @@ class EpicKitchensDataset(data.Dataset, ABC):
         """
         # Initialize variables for clarity
         num_frames = record.num_frames[modality]
-        num_samples = self.num_frames_per_clip[modality] * self.num_clips
+        num_frames_clip = self.num_frames_per_clip[modality]
 
-        if self.dense_sampling[modality]:
-            # Dense sampling logic
-            center_frames = np.linspace(0, num_frames, self.num_clips + 2, dtype=np.int32)[1:-1]
-            indices = []
-            for center in center_frames:
-                start = max(0, center - math.ceil(self.num_frames_per_clip[modality] / 2 * self.stride))
-                end = min(num_frames, center + math.ceil(self.num_frames_per_clip[modality] / 2 * self.stride))
-                indices.extend(range(start, end, self.stride))
+        #discard first and last center to avoid number at the beginning or at the end
+        center_clips = np.linspace(0, num_frames, self.num_clips + 2, dtype=np.int32)[1:-1]
 
-            # Handle case where we have fewer frames than needed
-            if len(indices) < num_samples:
-                indices += [indices[-1]] * (num_samples - len(indices))
-        else:
-            # Uniform sampling logic
-            if num_frames >= num_samples:
-                stride = max(1, num_frames // num_samples)
-                indices = np.arange(0, stride * num_samples, stride)
+        #train phase: apply randomization to the center clips
+        max_val = int((num_frames-1)/(4*self.num_clips) ) #longer videos and less clips implies more 
+        #max_val = 5
+        offset = np.random.randint(-max_val, max_val, size=self.num_clips)
+
+        center_clips = center_clips + offset
+
+        indices = []
+        for center in center_clips:
+            if self.dense_sampling[modality]:
+                #we have to select self.num_frames_per_clip[modality] frames separated by a small stride. 
+                start = max(0, center - math.ceil(num_frames_clip / 2 * self.stride))
+                end = min(num_frames, center + math.ceil(num_frames_clip / 2 * self.stride))
+                index_clip = list(range(start, end, self.stride))
+                #if for the above check we selected less indices than needed just repeat the last one
+                if len(index_clip) < num_frames_clip:
+                    index_clip += [index_clip[-1]] * (num_frames_clip - len(index_clip))
             else:
-                # When there are fewer frames than needed, repeat the last frame index
-                indices = np.arange(0, num_frames)
-                additional_indices = [num_frames - 1] * (num_samples - len(indices))
-                indices = np.concatenate((indices, additional_indices))
-
-        # Ensure indices are within bounds
+                # Uniform sampling logic : equally spaced frames in the whole clip
+                clip_length = max(1, num_frames // self.num_clips) #length of each clip
+                start = max(0, center - math.ceil(clip_length / 2))
+                end = min(num_frames, center + math.ceil(clip_length / 2))
+                step_size = max(1, clip_length // num_frames_clip)
+                index_clip = list(range(start, end, step_size))
+                if len(index_clip) < num_frames_clip:
+                    index_clip += [index_clip[-1]] * (num_frames_clip - len(index_clip))
+                if len(index_clip) > num_frames_clip:
+                    index_clip = index_clip[0:num_frames_clip]
+                
+                
+            indices.extend(index_clip)
         indices = np.clip(indices, 0, num_frames - 1)
-
         return indices.astype(int)
 
     def _get_val_indices(self, record, modality):
@@ -189,66 +148,40 @@ class EpicKitchensDataset(data.Dataset, ABC):
         """
         # Initialize variables for clarity
         num_frames = record.num_frames[modality]
-        num_samples = self.num_frames_per_clip[modality] * self.num_clips
+        num_frames_clip = self.num_frames_per_clip[modality]
 
-        if self.dense_sampling[modality]:
-            # Dense sampling logic
-            center_frames = np.linspace(0, num_frames, self.num_clips + 2, dtype=np.int32)[1:-1]
-            indices = []
-            for center in center_frames:
-                start = max(0, center - math.ceil(self.num_frames_per_clip[modality] / 2 * self.stride))
-                end = min(num_frames, center + math.ceil(self.num_frames_per_clip[modality] / 2 * self.stride))
-                indices.extend(range(start, end, self.stride))
+        #discard first and last center to avoid number at the beginning or at the end
+        center_clips = np.linspace(0, num_frames, self.num_clips + 2, dtype=np.int32)[1:-1]
 
-            # Handle case where we have fewer frames than needed
-            if len(indices) < num_samples:
-                indices += [indices[-1]] * (num_samples - len(indices))
-        else:
-            # Uniform sampling logic
-            if num_frames >= num_samples:
-                stride = max(1, num_frames // num_samples)
-                indices = np.arange(0, stride * num_samples, stride)
+        indices = []
+        for center in center_clips:
+            if self.dense_sampling[modality]:
+                #we have to select self.num_frames_per_clip[modality] frames separated by a small stride. 
+                start = max(0, center - math.ceil(num_frames_clip / 2 * self.stride))
+                end = min(num_frames, center + math.ceil(num_frames_clip / 2 * self.stride))
+                index_clip = list(range(start, end, self.stride))
+                #if for the above check we selected less indices than needed just repeat the last one
+                if len(index_clip) < num_frames_clip:
+                    index_clip += [index_clip[-1]] * (num_frames_clip - len(index_clip))
             else:
-                # When there are fewer frames than needed, repeat the last frame index
-                indices = np.arange(0, num_frames)
-                additional_indices = [num_frames - 1] * (num_samples - len(indices))
-                indices = np.concatenate((indices, additional_indices))
-
-        # Ensure indices are within bounds
+                # Uniform sampling logic : equally spaced frames in the whole clip
+                clip_length = max(1, num_frames // self.num_clips) #length of each clip
+                start = max(0, center - math.ceil(clip_length / 2))
+                end = min(num_frames, center + math.ceil(clip_length / 2))
+                step_size = max(1, clip_length // num_frames_clip)
+                index_clip = list(range(start, end, step_size))
+                if len(index_clip) < num_frames_clip:
+                    index_clip += [index_clip[-1]] * (num_frames_clip - len(index_clip))
+                if len(index_clip) > num_frames_clip:
+                    index_clip = index_clip[0:num_frames_clip]
+                
+            indices.extend(index_clip)
         indices = np.clip(indices, 0, num_frames - 1)
-
         return indices.astype(int)
 
     
     def __getitem__(self, index):
-        """
-        record =  Given an index, it retrieves the corresponding EpicVideoRecord object from the self.video_list.
-        example: self.video_list = [
-        EpicVideoRecord(index=0, row_data={'UID': 1, 'Label': 0, 'Untrimmed Video Name': 'video1.mp4', 'Start Timestamp': '0:05', 'End Timestamp': '0:10', ...}),
-        EpicVideoRecord(index=1, row_data={'UID': 2, 'Label': 1, 'Untrimmed Video Name': 'video2.mp4', 'Start Timestamp': '0:00', 'End Timestamp': '0:07', ...}),
-        ...]
-        model_features=
-            uid features_RGB     features_Flow
-        0    1  [0.1, 0.2, 0.3]  [0.2, 0.3, 0.4]
-        1    2  [0.4, 0.5, 0.6]  [0.5, 0.6, 0.7]
-        2    3  [0.7, 0.8, 0.9]  [0.8, 0.9, 1.0]
 
-                      uid features_RGB   features_Flow
-        sample_row  = 1  [0.1, 0.2, 0.3] [0.2, 0.3, 0.4]
-        sample[features_RGB]  =    [0.1, 0.2, 0.3]
-
-        returns either sample, record.label, record.untrimmed_video_name, record.uid = 
-        sample = {
-        "RGB": [0.1, 0.2, 0.3],
-        "Flow": [0.4, 0.5, 0.6]
-        }
-        record.label = 0
-        record.untrimmed_video_name = "video1.mp4"
-        record.uid = 1
-
-        (or just the first two)
-        """
-        
         frames = {}
         label = None
         # record is a row of the pkl file containing one sample/action
@@ -256,9 +189,9 @@ class EpicKitchensDataset(data.Dataset, ABC):
         # all the properties of the sample easily
         record = self.video_list[index]
 
-        if self.load_feat: # it loads pre-extracted features for the sample 
+        if self.load_feat:
             sample = {}
-            sample_row = self.model_features[self.model_features["uid"] == int(record.uid)] #filters the DataFrame self.model_features to retrieve the row corresponding to the UID of the record above.
+            sample_row = self.model_features[self.model_features["uid"] == int(record.uid)]
             assert len(sample_row) == 1
             for m in self.modalities:
                 sample[m] = sample_row["features_" + m].values[0]
@@ -267,19 +200,6 @@ class EpicKitchensDataset(data.Dataset, ABC):
             else:
                 return sample, record.label
 
-        """ 
-        (training) index is the position of a specific frame.
-        segment_indices  will hold the sampled indices for each modality.
-        the indices for sampling frames are selected from within the range of possible frame indices in the video clip.
-        sample_{num_frames}:  represents the total number of frames in the video clip that are available for sampling.
-        then the start_index of the sample is added as an offset
-        For example, in the end:
-        segment_indices = {         #a dictionary that stores the sampled frame indices for each modality within a specific
-            'RGB': [10, 15, 20, 25, 30], 
-            'Flow': [5, 10, 15, 20, 25]
-        }
-        
-        """
         segment_indices = {}
         # notice that all indexes are sampled in the[0, sample_{num_frames}] range, then the start_index of the sample
         # is added as an offset
@@ -301,66 +221,17 @@ class EpicKitchensDataset(data.Dataset, ABC):
             return frames, label
 
     def get(self, modality, record, indices):
-    """
-    images is a list that will store sampled frames
-    p - frame index
-    frame = the RGB image (as a list) at that specific index p
-    Finally images contains the list of of all RGB frames (img) of those specific indices of that specific record in that specific modality
-    Then all those images are transformed (for ex resized, normalized etc).
-    get returns these transformed images and the label of that specific video clip (record).
-    """
-
-        
-        images = list() 
+        images = list()
         for frame_index in indices:
             p = int(frame_index)
             # here the frame is loaded in memory
-            frame = self._load_data(modality, record, p) 
+            frame = self._load_data(modality, record, p)
             images.extend(frame)
         # finally, all the transformations are applied
         process_data = self.transform[modality](images)
         return process_data, record.label
 
     def _load_data(self, modality, record, idx):
-        """
-        load_data is responsible for loading a single frame from a specified modality from the dataset.
-                record - can be like record = {
-                                                'uid': 12345,
-                                                'label': 1,
-                                                'untrimmed_video_name': 'video1.mp4',
-                                                'start_frame': 0,
-                                                'num_frames': {
-                                                    'RGB': 300,
-                                                    'Flow': 300,
-                                                    'Spec': 300,
-                                                    'Event': 300
-                                                },
-                                # Other metadata attributes as needed such as start timestamp and end timestamp
-                                            }
-        idx - index of the frame within the video CLIP
-        dataset.RGB.data_path=../ek_data/frames
-        
-        data_path = ../ek_data/frames
-        tmpl=   "img_{:010d}.jpg"
-
-        We have a video clip represented by record, which starts at record.start_frame and contains multiple frames. 
-        The idx represents the index of the frame within this specific video clip.
-        To find the index of the frame within the entire untrimmed video (so, not in the specificc clip).
-        Suppose: 
-        record.start_frame = 100: the video clip starts at frame index 100.
-        idx = 20: the 20th frame within this video clip.
-        idx_untrimmed = 100 + 20 = 120
-        The path of the image: something like ../ek_data/frames/img_0000000005.jpg
-        It opens the image and returns the RGB version of it in img
-
-        Explanation for the case when idx_untrimmed > max_idx_video:
-            Sometimes, due to various reasons such as missing frames or incomplete data, the frame indices in the dataset may not be contiguous.
-            In such cases, the maximum frame index found provides an upper bound for the available frames, allowing the code to handle situations where the dataset does not contain frames for every possible index
-            If the requested frame index exceeds the maximum available frame index, the code falls back to loading the image for the maximum available frame index. This ensures that even if the requested frame is not available, the code can still provide an image for the nearest available frame.
-            return [img] #returns a list with a single image
-        """
-      
-        
         data_path = self.dataset_conf[modality].data_path
         tmpl = self.dataset_conf[modality].tmpl
 
@@ -369,7 +240,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
             idx_untrimmed = record.start_frame + idx
             try:
-                img = Image.open(os.path.join(data_path, record.untrimmed_video_name, record.untrimmed_video_name, tmpl.format(idx_untrimmed))) \
+                img = Image.open(os.path.join(data_path, record.untrimmed_video_name, tmpl.format(idx_untrimmed))) \
                     .convert('RGB')
             except FileNotFoundError:
                 print("Img not found")
@@ -381,7 +252,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
                         .convert('RGB')
                 else:
                     raise FileNotFoundError
-            return [img] 
+            return [img]
         
         else:
             raise NotImplementedError("Modality not implemented")
