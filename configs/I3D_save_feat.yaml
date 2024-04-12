@@ -3,7 +3,7 @@
 action: save # train or test     #Specifies whether to perform training or testing. In this case, it's set to save, indicating that the script will save features extracted from the dataset
 name: saved_feat_I3D    #name of the saved features
 split: test  #Specifies the dataset split to use
-#resume_from: ./saved_models/I3D_SourceOnlyD1
+resume_from: ./saved_models/I3D_SourceOnlyD1
 
 
 
