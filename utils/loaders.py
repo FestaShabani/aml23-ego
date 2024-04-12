@@ -67,7 +67,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
             self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
 
-   def _get_train_indices(self, record, modality='RGB'):
+    def _get_train_indices(self, record, modality='RGB'):
         ##################################################################
         # TODO: implement sampling for training mode                     #
         # Give the record and the modality, this function should return  #
