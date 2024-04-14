@@ -2,7 +2,7 @@
 
 action: save # train or test     #Specifies whether to perform training or testing. In this case, it's set to save, indicating that the script will save features extracted from the dataset
 name: saved_feat_I3D    #name of the saved features
-split: test  #Specifies the dataset split to use
+split: train  #Specifies the dataset split to use
 #resume_from: ./saved_models/I3D_SourceOnlyD1
 
 
@@ -25,12 +25,12 @@ save: # Contains parameters related to saving features.
 
 dataset: #Contains dataset-related configurations.
   annotations_path: train_val # train_val contains pickle files for different dataset splits (D1, D2, D3) and their corresponding train and test sets. Pikle files contain metadata about the splits 
-  shift: D1-D1
+  shift: ???
   workers: 4 # Number of workers for data loading.
   stride: 2 # Stride for sampling frames. A stride of 2 means that every second frame will be included in the feature extraction process
   resolution: 224 # indicating that the frames will be resized to a square shape with dimensions of 224x224 pixels
   RGB: #: Configurations specific to RGB frames.
-    data_path: ../ek_data/frames #This parameter needs to be filled with the appropriate path.
+    data_path: ??? #This parameter needs to be filled with the appropriate path.
     tmpl: "img_{:010d}.jpg" #Template for frame filenames.
   Event: #Configurations related to event data #events should be the actions like "washing dishes"
     rgb4e: 6 #each event is associated with 6 RGB frames.

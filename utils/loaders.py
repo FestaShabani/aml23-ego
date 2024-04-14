@@ -88,43 +88,34 @@ class EpicKitchensDataset(data.Dataset, ABC):
         """
         # Initialize variables for clarity
         num_frames = record.num_frames[modality]
-        num_frames_clip = self.num_frames_per_clip[modality]
-
-        #discard first and last center to avoid number at the beginning or at the end
-        center_clips = np.linspace(0, num_frames, self.num_clips + 2, dtype=np.int32)[1:-1]
-
-        #train phase: apply randomization to the center clips
-        max_val = int((num_frames-1)/(4*self.num_clips) ) #longer videos and less clips implies more 
-        #max_val = 5
-        offset = np.random.randint(-max_val, max_val, size=self.num_clips)
-
-        center_clips = center_clips + offset
-
-        indices = []
-        for center in center_clips:
-            if self.dense_sampling[modality]:
-                #we have to select self.num_frames_per_clip[modality] frames separated by a small stride. 
-                start = max(0, center - math.ceil(num_frames_clip / 2 * self.stride))
-                end = min(num_frames, center + math.ceil(num_frames_clip / 2 * self.stride))
-                index_clip = list(range(start, end, self.stride))
-                #if for the above check we selected less indices than needed just repeat the last one
-                if len(index_clip) < num_frames_clip:
-                    index_clip += [index_clip[-1]] * (num_frames_clip - len(index_clip))
+        num_samples = self.num_frames_per_clip[modality] * self.num_clips
+        
+        if self.dense_sampling[modality]:
+            # Dense sampling logic
+            center_frames = np.linspace(0, num_frames, self.num_clips + 2, dtype=np.int32)[1:-1]
+            indices = []
+            for center in center_frames:
+                start = max(0, center - math.ceil(self.num_frames_per_clip[modality] / 2 * self.stride))
+                end = min(num_frames, center + math.ceil(self.num_frames_per_clip[modality] / 2 * self.stride))
+                indices.extend(range(start, end, self.stride))
+                
+            # Handle case where we have fewer frames than needed
+            if len(indices) < num_samples:
+                indices += [indices[-1]] * (num_samples - len(indices))
+        else:
+            # Uniform sampling logic
+            if num_frames >= num_samples:
+                stride = max(1, num_frames // num_samples)
+                indices = np.arange(0, stride * num_samples, stride)
             else:
-                # Uniform sampling logic : equally spaced frames in the whole clip
-                clip_length = max(1, num_frames // self.num_clips) #length of each clip
-                start = max(0, center - math.ceil(clip_length / 2))
-                end = min(num_frames, center + math.ceil(clip_length / 2))
-                step_size = max(1, clip_length // num_frames_clip)
-                index_clip = list(range(start, end, step_size))
-                if len(index_clip) < num_frames_clip:
-                    index_clip += [index_clip[-1]] * (num_frames_clip - len(index_clip))
-                if len(index_clip) > num_frames_clip:
-                    index_clip = index_clip[0:num_frames_clip]
-                
-                
-            indices.extend(index_clip)
+                # When there are fewer frames than needed, repeat the last frame index
+                indices = np.arange(0, num_frames)
+                additional_indices = [num_frames - 1] * (num_samples - len(indices))
+                indices = np.concatenate((indices, additional_indices))
+
+        # Ensure indices are within bounds
         indices = np.clip(indices, 0, num_frames - 1)
+        
         return indices.astype(int)
 
     def _get_val_indices(self, record, modality):
@@ -148,38 +139,36 @@ class EpicKitchensDataset(data.Dataset, ABC):
         """
         # Initialize variables for clarity
         num_frames = record.num_frames[modality]
-        num_frames_clip = self.num_frames_per_clip[modality]
-
-        #discard first and last center to avoid number at the beginning or at the end
-        center_clips = np.linspace(0, num_frames, self.num_clips + 2, dtype=np.int32)[1:-1]
-
-        indices = []
-        for center in center_clips:
-            if self.dense_sampling[modality]:
-                #we have to select self.num_frames_per_clip[modality] frames separated by a small stride. 
-                start = max(0, center - math.ceil(num_frames_clip / 2 * self.stride))
-                end = min(num_frames, center + math.ceil(num_frames_clip / 2 * self.stride))
-                index_clip = list(range(start, end, self.stride))
-                #if for the above check we selected less indices than needed just repeat the last one
-                if len(index_clip) < num_frames_clip:
-                    index_clip += [index_clip[-1]] * (num_frames_clip - len(index_clip))
-            else:
-                # Uniform sampling logic : equally spaced frames in the whole clip
-                clip_length = max(1, num_frames // self.num_clips) #length of each clip
-                start = max(0, center - math.ceil(clip_length / 2))
-                end = min(num_frames, center + math.ceil(clip_length / 2))
-                step_size = max(1, clip_length // num_frames_clip)
-                index_clip = list(range(start, end, step_size))
-                if len(index_clip) < num_frames_clip:
-                    index_clip += [index_clip[-1]] * (num_frames_clip - len(index_clip))
-                if len(index_clip) > num_frames_clip:
-                    index_clip = index_clip[0:num_frames_clip]
+        num_samples = self.num_frames_per_clip[modality] * self.num_clips
+        
+        if self.dense_sampling[modality]:
+            # Dense sampling logic
+            center_frames = np.linspace(0, num_frames, self.num_clips + 2, dtype=np.int32)[1:-1]
+            indices = []
+            for center in center_frames:
+                start = max(0, center - math.ceil(self.num_frames_per_clip[modality] / 2 * self.stride))
+                end = min(num_frames, center + math.ceil(self.num_frames_per_clip[modality] / 2 * self.stride))
+                indices.extend(range(start, end, self.stride))
                 
-            indices.extend(index_clip)
+            # Handle case where we have fewer frames than needed
+            if len(indices) < num_samples:
+                indices += [indices[-1]] * (num_samples - len(indices))
+        else:
+            # Uniform sampling logic
+            if num_frames >= num_samples:
+                stride = max(1, num_frames // num_samples)
+                indices = np.arange(0, stride * num_samples, stride)
+            else:
+                # When there are fewer frames than needed, repeat the last frame index
+                indices = np.arange(0, num_frames)
+                additional_indices = [num_frames - 1] * (num_samples - len(indices))
+                indices = np.concatenate((indices, additional_indices))
+
+        # Ensure indices are within bounds
         indices = np.clip(indices, 0, num_frames - 1)
+        
         return indices.astype(int)
 
-    
     def __getitem__(self, index):
 
         frames = {}
@@ -240,7 +229,7 @@ class EpicKitchensDataset(data.Dataset, ABC):
 
             idx_untrimmed = record.start_frame + idx
             try:
-                img = Image.open(os.path.join(data_path, record.untrimmed_video_name, tmpl.format(idx_untrimmed))) \
+                img = Image.open(os.path.join(data_path, record.untrimmed_video_name, record.untrimmed_video_name, tmpl.format(idx_untrimmed))) \
                     .convert('RGB')
             except FileNotFoundError:
                 print("Img not found")
