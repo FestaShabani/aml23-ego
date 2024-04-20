@@ -44,5 +44,5 @@ models: #Contains configurations for the action recognition models.
     lr: 0.01
     sgd_momentum: 0.9
     weight_decay: 1e-7
-
+    num_clips: 5
 
