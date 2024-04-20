@@ -243,7 +243,7 @@ def validate(model, val_loader, device, it, num_classes):
 
             output, _ = model(data)
             for m in modalities:
-                logits[m][i_c] = output[m]
+                logits[m] = output[m]
 
             #for m in modalities:
                 #logits[m] = torch.mean(logits[m], dim=0)
