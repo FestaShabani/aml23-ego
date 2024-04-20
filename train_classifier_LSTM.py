@@ -241,7 +241,7 @@ def validate(model, val_loader, device, it, num_classes):
                 #for m in modalities:
                     #clip[m] = data[m][:, i_c].to(device)
 
-            output, _ = model(clip)
+            output, _ = model(data)
             for m in modalities:
                 logits[m][i_c] = output[m]
 
