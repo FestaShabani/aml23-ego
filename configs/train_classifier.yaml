@@ -1,7 +1,7 @@
 #this configuration file sets up parameters for feature extraction using an I3D model
 
 action: save # train or test     #Specifies whether to perform training or testing. In this case, it's set to save, indicating that the script will save features extracted from the dataset
-name: saved_feat_I3D    #name of the saved features
+name: saved_feat_I3D
 split: train  #Specifies the dataset split to use
 
 
@@ -37,18 +37,12 @@ dataset: #Contains dataset-related configurations.
 # these are the action recognition models for each modality
 models: #Contains configurations for the action recognition models.
   RGB: #Configurations specific to the RGB modality.
-    model: I3D #Model to use for RGB modality.
-    num_input: 1024
-    num_classes: 8
-    num_clips: 5
-    dropout: 0.5
+    model: ??? #Model to use for RGB modality.
     normalize: False
-    resolution: 224
     kwargs: {}
     lr_steps: 3000
     lr: 0.01
     sgd_momentum: 0.9
     weight_decay: 1e-7
-    weight_i3d_rgb: './pretrained_i3d/rgb_imagenet.pt' #Path to the pretrained weights for the RGB model.
 
 
