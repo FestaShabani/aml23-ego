@@ -1,7 +1,7 @@
 #this configuration file sets up parameters for feature extraction using an I3D model
 
 action: save # train or test     #Specifies whether to perform training or testing. In this case, it's set to save, indicating that the script will save features extracted from the dataset
-name: doing_MLP
+name: saved_feat_I3D
 split: train  #Specifies the dataset split to use
 
 
