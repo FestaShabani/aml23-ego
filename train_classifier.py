@@ -45,7 +45,7 @@ def main():
 
     # recover valid paths, domains, classes
     # this will output the domain conversion (D1 -> 8, et cetera) and the label list
-    num_classes, valid_labels, source_domain, target_domain = utils.utils.get_domains_and_labels(args)
+    num_classes, valid_labels, source_domain, target_domain = utils.utils.get_domains_and_labels(args) 
     # device where everything is run
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -53,9 +53,11 @@ def main():
     models = {}
     logger.info("Instantiating models per modality")
     for m in modalities:
-        logger.info('{} Net\tModality: {}'.format(args.models[m].model, m))
+        logger.info('{} Net\tModality: {}'.format(args.models[m].model, m))   #model and modality
         # notice that here, the first parameter passed is the input dimension
         # In our case it represents the feature dimensionality which is equivalent to 1024 for I3D
+        print(model_list)
+        print()
         models[m] = getattr(model_list, args.models[m].model)()
 
     # the models are wrapped into the ActionRecognition task which manages all the training steps
