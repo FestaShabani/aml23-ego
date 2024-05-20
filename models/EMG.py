@@ -25,7 +25,7 @@ class LeNet5(nn.Module):
         features = torch.flatten(x,1)
         logits = F.relu(self.fc1(features))
         logits = self.fc2(logits)
-        return logits, features
+        return logits, {"features" : features}
         
     def num_flat_features(self, x):
         '''
