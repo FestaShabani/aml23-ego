@@ -1,3 +1,9 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import numpy as np
+
 class TRN(torch.nn.Module):
     # relation module in multi-scale with a classifier at the end
     def __init__(self, num_input, num_classes, num_frames):
