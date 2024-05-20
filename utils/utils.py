@@ -3,8 +3,8 @@ import torch
 
 
 def get_domains_and_labels(args):
-    num_verbs = 8
-    domains = {'D1': 8, 'D2': 1, 'D3': 22}
+    num_verbs = args.dataset.num_classes
+    domains = {'D1': 8, 'D2': 1, 'D3': 22, 'ActionNet': 0 ,'S04': 3}
     source_domain = domains[args.dataset.shift.split("-")[0]]
     target_domain = domains[args.dataset.shift.split("-")[1]]
     valid_labels = [i for i in range(num_verbs)]
