@@ -9,6 +9,9 @@ import os.path
 from utils.logger import logger
 import numpy as np 
 import math
+import torch
+from .video_record import VideoRecord
+
 
 class EpicKitchensDataset(data.Dataset, ABC):
     def __init__(self, split, modalities, mode, dataset_conf, num_frames_per_clip, num_clips, dense_sampling,
@@ -249,4 +252,173 @@ class EpicKitchensDataset(data.Dataset, ABC):
     def __len__(self):
         return len(self.video_list)
 
+class ActionNetRecord(VideoRecord):
+    def __init__(self, tup, dataset_conf):
+        self._index = str(tup[0])
+        self._series = tup[1]
+        self.dataset_conf = dataset_conf
+
+    @property
+    def start_frame(self):
+        return self._series['start_frame']
+
+    @property
+    def end_frame(self):
+        return self._series['stop_frame']
+
+    @property
+    def uid(self):
+        return self._series['id']
+
+    @property
+    def untrimmed_video_name(self):
+        return self._series['subject_id']
+        
+    @property
+    def label(self):
+        return torch.tensor(self._series['description'], dtype=torch.long)
+
+    @property
+    def myo_left_readings(self):
+        return self._series['myo_left_readings']
+    
+    @property
+    def myo_right_readings(self):
+        return self._series['myo_right_readings']
+    
+    @property
+    def num_frames(self):
+        return {'RGB': self.end_frame - self.start_frame,
+                'EMG': len(self._series['myo_right_readings']) }
+    @property
+    def get_indices(self):
+        return self._series['index_frames']
+
+class ActionNetDataset(data.Dataset, ABC):
+
+    def __init__(self, split, modalities, mode, dataset_conf, num_frames_per_clip, num_clips, dense_sampling,
+                 transform=None, load_feat=False, additional_info=False, **kwargs) -> None:
+        """
+        - split: ActionNet if modality is EMG or S04 if RGB
+        - modalities can be RGB(not implemented yet) and EMG data
+        - mode is a string (train, test)
+        dataset_conf must contain the following:
+            - annotations_path: str
+            - stride: int
+        dataset_conf[modality] for the modalities used must contain:
+            - data_path: str
+            - tmpl: str
+            - features_name: str (in case you are loading features for a predefined modality)
+            - (Event only) rgb4e: int
+        num_frames_per_clip: dict(modality: int)
+        num_clips: int
+        dense_sampling: dict(modality: bool)
+        additional_info: bool, set to True if you want to receive also the uid and the video name from the get function
+            notice, this may be useful to do some proper visualizations!
+        """
+        super().__init__()
+
+        self.modalities = modalities  # considered modalities (ex. [RGB,EMG])
+        self.mode = mode  # 'train', 'val' or 'test'
+        self.dataset_conf = dataset_conf
+        self.num_frames_per_clip = num_frames_per_clip
+        self.dense_sampling = dense_sampling
+        self.num_clips = num_clips
+        self.stride = self.dataset_conf.stride
+        self.additional_info = additional_info
+
+        self.require_spectrogram = kwargs.get('require_spectrogram', False)
+        
+        if self.mode == "train":
+            pickle_name = "ActionNet" + "_EMG_train.pkl"
+        else:
+            pickle_name = "ActionNet" + "_EMG_test.pkl"
+        
+        raw_data = pd.read_pickle(os.path.join(dataset_conf.annotations_path, pickle_name))
+
+        self.list_file = raw_data
+        #print(f'list_val_load: {self.list_file}, add: {os.path.join(self.dataset_conf.annotations_path, pickle_name)}')
+        logger.info(f"Dataloader for {split} - {self.mode} with {len(self.list_file)} samples generated")
+        self.video_list = [ ActionNetRecord(tup, self.dataset_conf) for tup in self.list_file.iterrows()]
+        
+        self.transform = transform
+        self.load_feat = load_feat
+
+        # TODO: REFACTORING
+        # model features will be the dictionary containing the features for each modality
+        # 
+        if self.load_feat:
+            self.model_features = None
+            for m in self.modalities:
+                model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features", self.dataset_conf[m].features_name + "_" + pickle_name))['features'])[["uid", "features_" + m]]
+                if self.model_features is None:
+                    self.model_features = model_features
+                else:
+                    self.model_features = pd.merge(self.model_features, model_features, how="inner", on="uid")
+                self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
+
+
+    def __getitem__(self, index):
+        
+        frames = {}
+        label = None
+        # record is a row of the pkl file containing one sample/action
+        # notice that it is already converted into a EpicVideoRecord object so that here you can access
+        # all the properties of the sample easily
+        record = self.video_list[index]
+
+        '''
+        if self.load_feat:
+            sample = {}
+            sample_row = self.model_features[self.model_features["uid"] == int(record.uid)]
+            assert len(sample_row) == 1
+            for m in self.modalities:
+                sample[m] = torch.Tensor(sample_row["features_" + m].values[0])
+            if self.additional_info:
+                return sample, record.label[0], record.untrimmed_video_name, record.uid
+            else:
+                return sample, record.label[0]
+        '''
+
+        segment_indices = {}
+        # notice that all indexes are sampled in the[0, sample_{num_frames}] range, then the start_index of the sample
+        # is added as an offset
+        for modality in self.modalities:
+          segment_indices[modality] = record.get_indices
+
+        for m in self.modalities:
+            img, label = self.get(m, record, segment_indices[m])
+            frames[m] = img
+       
+
+        if self.additional_info:
+            return frames, label, record.untrimmed_video_name, record.uid
+        else:
+            return frames, label
+
+    def get(self, modality, record, indices):
+        #logger.info(f'nel_get : {indices}')
+        if modality == 'RGB':
+            images = list()
+            for frame_index in indices:
+                # here the frame is loaded in memory
+                frame = self._load_data(modality, record, frame_index)
+                images.extend(frame)
+            # finally, all the transformations are applied
+            process_data = self.transform[modality](images)
+            return process_data, record.label
+            
+    def _load_data(self, modality, record, idx):
+        data_path = self.dataset_conf[modality].data_path
+
+        if modality == 'RGB':
+            # here the offset for the starting index of the sample is added
+            img = Image.open(os.path.join(data_path, 'frame_' + str(idx).zfill(10) + '.jpg')).convert('RGB')
+            return [img]
+        else:
+            raise NotImplementedError("Modality not implemented")
+
+    def __len__(self):
+    
+        return len(self.video_list)
 

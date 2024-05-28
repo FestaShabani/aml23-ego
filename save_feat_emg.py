@@ -40,9 +40,9 @@ class SpectroDataset(Dataset):
         label = torch.tensor(label, dtype=torch.long)
         label = torch.squeeze(label)
 
-
+        uid = self.data[idx]['id']
         spectrogram = {"EMG": new_spec} 
-        return spectrogram, label
+        return spectrogram, label, uid
 
 def init_operations():
     """
@@ -156,7 +156,7 @@ def save_feat(model, loader, device, it, num_classes, train=False, num_clips = 5
     feature_name = kwargs.get("feature_name", "reconstructed_emg")
     # Iterate over the models
     with torch.no_grad():
-        for i_val, (data, label) in enumerate(loader):            
+        for i_val, (data, label, uid) in enumerate(loader):            
             label = label.to(device)
             for m in modalities:
                 data[m] = data[m].to(device)
@@ -167,7 +167,7 @@ def save_feat(model, loader, device, it, num_classes, train=False, num_clips = 5
                 
                 sample['label'] = label.item()
                 sample[f'features_{m}'] = feat['features'][m].cpu().numpy()    
-
+                sample['id'] = uid
                 results_dict['features'].append(sample)
 
                 #logger.info(f'main : feat: len_keys: {len(feat.keys())}, keys: {feat.keys()}, \n feat_:{feat}')
@@ -222,10 +222,10 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         # the following code is necessary as we do not reason in epochs so as soon as the dataloader is finished we need
         # to redefine the iterator
         try:
-            source_data, source_label = next(data_loader_source)
+            source_data, source_label, _ = next(data_loader_source)
         except StopIteration:
             data_loader_source = iter(train_loader)
-            source_data, source_label = next(data_loader_source)
+            source_data, source_label, _ = next(data_loader_source)
         end_t = datetime.now()
 
         logger.info(f"Iteration {i}/{training_iterations} batch retrieved! Elapsed time = "
@@ -300,7 +300,7 @@ def validate(model, val_loader, device, it, num_classes):
 
     # Iterate over the models
     with torch.no_grad():
-        for i_val, (data, label) in enumerate(val_loader):
+        for i_val, (data, label, _) in enumerate(val_loader):
             label = label.to(device)
 
             for m in modalities:
