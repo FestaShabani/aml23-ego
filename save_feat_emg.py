@@ -166,7 +166,7 @@ def save_feat(model, loader, device, it, num_classes, train=False, num_clips = 5
                 
                 sample['label'] = label.item()
                 sample[f'features_{m}'] = feat['features'][m].cpu().numpy()    
-                sample['id'] = uid
+                sample['id'] = uid.item()
                 results_dict['features'].append(sample)
 
                 #logger.info(f'main : feat: len_keys: {len(feat.keys())}, keys: {feat.keys()}, \n feat_:{feat}')
