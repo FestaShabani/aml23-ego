@@ -3,7 +3,6 @@ from utils.logger import logger
 import torch.nn.parallel
 import torch.optim
 import torch
-from utils.loaders import ActionNetDataset
 from utils.args import args
 from utils.utils import pformat_dict
 import utils
