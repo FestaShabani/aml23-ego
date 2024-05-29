@@ -354,7 +354,7 @@ class ActionNetDataset(data.Dataset, ABC):
             for m in self.modalities:
                 
                 model_features = pd.DataFrame(pd.read_pickle(os.path.join(self.dataset_conf[m].data_path, 
-                  pickle_name))['features'])[["id", "features_" + m, "label"]]
+                  pickle_name))['features'])[["id", "features_" + m]]
                 if self.model_features is None:
                     self.model_features = model_features
                 else:
@@ -377,9 +377,9 @@ class ActionNetDataset(data.Dataset, ABC):
                 sample[m] = torch.Tensor(sample_row["features_" + m].values[0])
 
             if self.additional_info:
-                return sample, sample_row['label'].values, record.untrimmed_video_name, record.uid
+                return sample, sample_row['description'].values, record.untrimmed_video_name, record.uid
             else:
-                return sample, sample_row['label'].values
+                return sample, sample_row['description'].values
         
 
         segment_indices = {}
