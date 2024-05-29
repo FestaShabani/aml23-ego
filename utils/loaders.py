@@ -330,9 +330,9 @@ class ActionNetDataset(data.Dataset, ABC):
         self.require_spectrogram = kwargs.get('require_spectrogram', False)
         
         if self.mode == "train":
-            pickle_name = "ActionNet" + "_EMG_train.pkl"
+            pickle_name = "ActionNet_EMG_train.pkl"
         else:
-            pickle_name = "ActionNet" + "_EMG_test.pkl"
+            pickle_name = "ActionNet_EMG_test.pkl"
         
         raw_data = pd.read_pickle(os.path.join(dataset_conf.annotations_path, pickle_name))
 
@@ -344,41 +344,43 @@ class ActionNetDataset(data.Dataset, ABC):
         self.transform = transform
         self.load_feat = load_feat
 
-        # TODO: REFACTORING
-        # model features will be the dictionary containing the features for each modality
-        # 
         if self.load_feat:
+            if self.mode == "train":
+              pickle_name = "ActionNet_train.pkl"
+            else:
+                pickle_name = "ActionNet_test.pkl"
+
             self.model_features = None
             for m in self.modalities:
-                model_features = pd.DataFrame(pd.read_pickle(os.path.join("saved_features", self.dataset_conf[m].features_name + "_" + pickle_name))['features'])[["uid", "features_" + m]]
+                
+                model_features = pd.DataFrame(pd.read_pickle(os.path.join(self.dataset_conf[m].data_path, 
+                  pickle_name))['features'])[["id", "features_" + m, "label"]]
                 if self.model_features is None:
                     self.model_features = model_features
                 else:
-                    self.model_features = pd.merge(self.model_features, model_features, how="inner", on="uid")
-                self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="uid")
-
-
+                    self.model_features = pd.merge(self.model_features, model_features, how="inner", on="id")
+            self.model_features = pd.merge(self.model_features, self.list_file, how="inner", on="id")
+    
     def __getitem__(self, index):
         
         frames = {}
         label = None
-        # record is a row of the pkl file containing one sample/action
-        # notice that it is already converted into a EpicVideoRecord object so that here you can access
-        # all the properties of the sample easily
         record = self.video_list[index]
 
-        '''
+
+        ##NB since for VAE we always use self.load_feat=True it could make sense to remove ther rest of the code
         if self.load_feat:
             sample = {}
-            sample_row = self.model_features[self.model_features["uid"] == int(record.uid)]
+            sample_row = self.model_features[self.model_features["id"] == int(record.uid)]
             assert len(sample_row) == 1
             for m in self.modalities:
                 sample[m] = torch.Tensor(sample_row["features_" + m].values[0])
+
             if self.additional_info:
-                return sample, record.label[0], record.untrimmed_video_name, record.uid
+                return sample, sample_row['label'].values, record.untrimmed_video_name, record.uid
             else:
-                return sample, record.label[0]
-        '''
+                return sample, sample_row['label'].values
+        
 
         segment_indices = {}
         # notice that all indexes are sampled in the[0, sample_{num_frames}] range, then the start_index of the sample
