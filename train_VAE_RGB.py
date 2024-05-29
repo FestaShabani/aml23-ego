@@ -211,12 +211,9 @@ def reconstruct(autoencoder, dataloader, device, split=None, **kwargs):
                     'video_name': video_name
                 })
     try:
-        date = str(datetime.now().date())
-        if not os.path.isdir(os.path.join('./saved_features/reconstructed_emg/', date)):
-            os.mkdir(os.path.join('./saved_features/reconstructed_emg/', date))
-        with open(os.path.join('./saved_features/reconstructed_emg/', date, f"{filename}_{'ActionNet'}_{split}.pkl"), "wb") as file:
+        with open(os.path.join('./saved_features/reconstructed_RGB/', f"{'ActionNet'}_{split}.pkl"), "wb") as file:
             pickle.dump(result, file)
-        logger.info(f"Saved {filename}_{'ActionNet'}_{split}.pkl")
+        logger.info(f"Saved {'ActionNet'}_{split}.pkl")
     except Exception as e:
         logger.warning(f"Error while saving the file: {e}")
     
