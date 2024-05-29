@@ -122,7 +122,7 @@ def save_feat(model, loader, device, it, num_classes):
                 features[m] = feat[m]
 
             for i in range(batch):
-                sample = {"uid": int(uid[i]), "video_name": video_name[i]}
+                sample = {"id": int(uid[i]), "video_name": video_name[i]}
                 for m in modalities:
                     sample["features_" + m] = features[m][i].cpu().detach().numpy()
                 results_dict["features"].append(sample)
@@ -136,8 +136,8 @@ def save_feat(model, loader, device, it, num_classes):
             #                                                               model.accuracy.avg[1], model.accuracy.avg[5]))
 
         os.makedirs("saved_features", exist_ok=True)
-        pickle.dump(results_dict, open(os.path.join("../an_data/RGB/features", args.name + "_" +
-                                                    args.dataset.shift.split("-")[1] + ".pkl"), 'wb'))
+        pickle.dump(results_dict, open(os.path.join("../an_data/RGB/features", "ActionNet_" +
+                                                    args.name + ".pkl"), 'wb'))
     return 0
 
 

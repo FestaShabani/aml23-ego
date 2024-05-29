@@ -95,8 +95,8 @@ def main():
                                                    num_workers=args.dataset.workers, pin_memory=True, drop_last=True)
         
         ae = train(models, train_loader, val_loader, device, args.models.RGB)
-        save_model(ae['RGB'], f"{args.name}_lr{args.models.RGB.lr}")
-        logger.info(f"Model saved in {args.name}_lr{args.models.RGB.lr}.pth")
+        save_model(ae['RGB'], "VAE_RGB")
+        logger.info(f"Model saved")
         logger.info(f"TRAINING VAE FINISHED, RECONSTUCTING FEATURES...")
 
         filename = f"{args.models.RGB.model}_lr{args.models.RGB.lr}_beta_costant{args.models.RGB.beta}"
@@ -225,11 +225,8 @@ def reconstruct(autoencoder, dataloader, device, split=None, **kwargs):
 
 def save_model(model, filename):
     try:
-        date = str(datetime.now().date())
-        if not os.path.isdir(os.path.join('./saved_models/VAE_RGB', date)):
-            os.mkdir(os.path.join('./saved_models/VAE_RGB', date))
         torch.save({'encoder': model.encoder.state_dict(), 'decoder': model.decoder.state_dict()}, 
-                   os.path.join('./saved_models/VAE_RGB', date, filename))
+                   os.path.join('./saved_models/VAE_RGB/', filename))
     except Exception as e:
         logger.info("An error occurred while saving the checkpoint:")
         logger.info(e)
