@@ -3,7 +3,7 @@ import torch.nn.parallel
 import torch.nn as nn
 import torch.optim
 import torch
-from utils.actionNet_record import ActionNetDataset
+from utils.loaders import ActionNetDataset
 from utils.args import args
 from utils.utils import pformat_dict
 import utils
@@ -51,6 +51,7 @@ def main():
     global training_iterations, modalities
     init_operations()
     modalities = args.modality
+
 
     # recover valid paths, domains, classes
     # this will output the domain conversion (D1 -> 8, et cetera) and the label list
@@ -110,15 +111,14 @@ def validate(autoencoder, val_dataloader, device, reconstruction_loss):
     total_loss = 0
     autoencoder.train(False)
     for i, (data, labels) in enumerate(val_dataloader):
-        for m in modalities:
-            data[m] = data[m].permute(1, 0, 2)
-            # print(f"Data after permutation: {data[m].size()}")
-        for i_c in range(args.test.num_clips):
-            for m in modalities:
-                # extract the clip related to the modality
-                clip = data[m][i_c].to(device)
-                x_hat, _, _, _ = autoencoder(clip)
-                total_loss += reconstruction_loss(x_hat, clip)
+      for m in modalities:
+          data[m] = data[m].permute(1, 0, 2).squeeze(0)
+
+      for m in modalities:
+          # extract the clip related to the modality
+          clip = data[m].to(device)
+          x_hat, _, _, _ = autoencoder(clip)
+          total_loss += reconstruction_loss(x_hat, clip)
     return total_loss/(5 * len(val_dataloader))
 
 def train(autoencoder, train_dataloader, val_dataloader, device, model_args):
@@ -141,28 +141,30 @@ def train(autoencoder, train_dataloader, val_dataloader, device, model_args):
         # train_loop
         total_loss = 0 # total loss for the epoch
         for i, (data, _) in enumerate(train_dataloader):
-            opt.zero_grad()                                                                 #  reset the gradients    
+            opt.zero_grad()
+
             for m in modalities:
-                data[m] = data[m].permute(1, 0, 2)                                          #  Data is now in the form (clip, batch, features)
+                data[m] = data[m].permute(1, 0, 2).squeeze(0)
+                #from batch, clip, features to clip, batch, features
+                #then remove the clip dim since it's just 1
             
-            for i_c in range(args.test.num_clips):
-                clip_level_loss = 0                                                         #  loss for the clip             
-                for m in modalities:
-                    # extract the clip related to the modality
-                    clip = data[m][i_c].to(device)
+            clip_level_loss = 0
+            for m in modalities:
+                # extract the clip related to the modality
+                clip = data[m].to(device)
 
-                    x_hat, _, mean, log_var = autoencoder[m](clip)
+                x_hat, _, mean, log_var = autoencoder[m](clip)
 
-                    mse_loss = reconstruction_loss(x_hat, clip)                              #  compute the reconstruction loss
-                    kld_loss = - 0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())  #  compute the KLD loss
-                    loss = mse_loss + beta[epoch] * kld_loss
-                    # generate an error if loss is nan
-                    if loss.isnan():
-                        raise ValueError("Loss is NaN.")
-                    clip_level_loss += loss
-                    loss.backward()
-                    opt.step()
-                    wandb.log({"Beta": beta[epoch], "MSE LOSS": mse_loss, 'KLD_loss': kld_loss, 'loss': loss, 'lr': scheduler.get_last_lr()[0]})
+                mse_loss = reconstruction_loss(x_hat, clip)                              #  compute the reconstruction loss
+                kld_loss = - 0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())  #  compute the KLD loss
+                loss = mse_loss + beta[epoch] * kld_loss
+                # generate an error if loss is nan
+                if loss.isnan():
+                    raise ValueError("Loss is NaN.")
+                clip_level_loss += loss
+                loss.backward()
+                opt.step()
+                wandb.log({"Beta": beta[epoch], "MSE LOSS": mse_loss, 'KLD_loss': kld_loss, 'loss': loss, 'lr': scheduler.get_last_lr()[0]})
             total_loss += clip_level_loss.item()
         if epoch % 10 == 0:
             wandb.log({"validation_loss": validate(autoencoder['EMG'], val_dataloader, device, reconstruction_loss)})
@@ -187,36 +189,29 @@ def reconstruct(autoencoder, dataloader, device, split=None, **kwargs):
     avg_video_level_loss = 0
     with torch.no_grad():
         for i, (data, label, video_name, uid) in enumerate(dataloader):
+            
             for m in modalities:
                 autoencoder[m].train(False)
-                data[m] = data[m].squeeze(1).permute(1, 0, 2)     #  clip level
-                clips = []
-                clip_loss = 0
-                for i_c in range(args.test.num_clips): #  iterate over the clips
-                    clip = data[m][i_c].to(device)     #  retrieve the clip
-                    x_hat, _, _, _ = autoencoder[m](clip)     
-                    clip = clip.cpu()
-                    x_hat = x_hat.cpu()
-                    clip_loss += reconstruction_loss(clip, x_hat)
-                    clips.append(x_hat)
-                clips = torch.stack(clips, dim = 0)
-                clips = clips.permute(1, 0, 2)
-                avg_video_level_loss += reconstruction_loss(data[m].permute(1, 0, 2), clips)
-                clips = clips.squeeze(0)
 
+                data[m] = data[m].permute(1, 0, 2).squeeze(0)
+                
+                clip = data[m].to(device)     #  retrieve the clip
+                x_hat, _, _, _ = autoencoder[m](clip)     
+                x_hat = x_hat.cpu()
+                
+                
+                avg_video_level_loss += reconstruction_loss(data[m], x_hat)
+                
                 result['features'].append({
-                    'features_EMG': clips.numpy(), 
+                    'features_EMG': x_hat.numpy(), 
                     'label': label.item(), 
                     'uid': uid.item(), 
                     'video_name': video_name
                 })
     try:
-        date = str(datetime.now().date())
-        if not os.path.isdir(os.path.join('./saved_features/reconstructed_emg/', date)):
-            os.mkdir(os.path.join('./saved_features/reconstructed_emg/', date))
-        with open(os.path.join('./saved_features/reconstructed_emg/', date, f"{filename}_{'ActionNet'}_{split}.pkl"), "wb") as file:
+        with open(os.path.join('./saved_features/reconstructed_EMG/', f"{'ActionNet'}_{split}.pkl"), "wb") as file:
             pickle.dump(result, file)
-        logger.info(f"Saved {filename}_{'ActionNet'}_{split}.pkl")
+        logger.info(f"Saved {'ActionNet'}_{split}.pkl")
     except Exception as e:
         logger.warning(f"Error while saving the file: {e}")
     
