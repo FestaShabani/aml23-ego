@@ -177,7 +177,7 @@ def train(action_classifier, train_loader, val_loader, device, num_classes):
         # in case of multi-clip training one clip per time is processed
         for m in modalities:
             data[m] = source_data[m].to(device)
-            data[m] = data[m] = torch.reshape(data[m], (args.models[m].num_clips, 32, 1024)) 
+            data[m] = data[m] = torch.reshape(data[m], (args.models[m].num_clips, args.batch_size, args.models[m].num_input)) 
 
         logits, _ = action_classifier.forward(data)
         action_classifier.compute_loss(logits, source_label, loss_weight=1)
