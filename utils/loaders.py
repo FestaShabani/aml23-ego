@@ -336,6 +336,10 @@ class ActionNetDataset(data.Dataset, ABC):
         
         raw_data = pd.read_pickle(os.path.join(dataset_conf.annotations_path, pickle_name))
 
+        if split == 'S04':
+          raw_data = raw_data[raw_data['subject_id'] == 'S04']
+
+
         self.list_file = raw_data
         #print(f'list_val_load: {self.list_file}, add: {os.path.join(self.dataset_conf.annotations_path, pickle_name)}')
         logger.info(f"Dataloader for {split} - {self.mode} with {len(self.list_file)} samples generated")
@@ -372,7 +376,10 @@ class ActionNetDataset(data.Dataset, ABC):
         if self.load_feat:
             sample = {}
             sample_row = self.model_features[self.model_features["id"] == int(record.uid)]
-            assert len(sample_row) == 1
+            if len(sample_row) > 1:
+              print(record.uid)
+              print(self.model_features[self.model_features["id"] == int(record.uid)])
+            assert len(sample_row) == 1, f'for {record.uid} got {sample_row}'
             for m in self.modalities:
                 sample[m] = torch.Tensor(sample_row["features_" + m].values[0])
 
