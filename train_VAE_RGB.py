@@ -205,7 +205,7 @@ def reconstruct(autoencoder, dataloader, device, split=None, **kwargs):
                 clips = clips.squeeze(0)
 
                 result['features'].append({
-                    'features_EMG': clips.numpy(), 
+                    'features_RGB': clips.numpy(), 
                     'label': label.item(), 
                     'uid': uid.item(), 
                     'video_name': video_name

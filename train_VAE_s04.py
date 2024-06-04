@@ -242,7 +242,7 @@ def reconstruct(autoencoder, dataloader, device, split=None, filename='test'):
             
             #need to change the EMG clip to align it with the dimensionality of the RGB tensor
             result['features'].append({
-                'features_EMG': torch.stack(EMG_clips, dim = 0).permute(1, 0, 2).squeeze(0),
+                'features_EMG': torch.stack(EMG_clips, dim = 0).permute(1, 0, 2).squeeze(0).numpy(),
                 'label': label.item(), 
                 'uid': uid.item(), 
                 'video_name': video_name
