@@ -16,7 +16,7 @@ save: # Contains parameters related to saving features.
   dense_sampling: #Specifies whether dense sampling is used for RGB frames
     RGB: True
   num_frames_per_clip:
-    RGB: 16 #Number of frames per RGB clip
+    RGB: 5 #Number of frames per RGB clip
 
 
 
