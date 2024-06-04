@@ -37,7 +37,7 @@ test:
 
 dataset:
   annotations_path: "../an_data/EMG_preprocessed/"
-  shift: D1-D1
+  shift: S04-S04
   workers: 4
   stride: 2
   resolution: 224

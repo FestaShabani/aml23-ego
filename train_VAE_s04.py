@@ -53,9 +53,9 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # these dictionaries are for more multi-modal training/testing, each key is a modality used
-    model = getattr(model_list, args.models.VAE.model)(args.train.in_feature_size, 
+    model = getattr(model_list, args.models.VAE.model)(args.train.RGB.feature_size, 
                                                               args.train.bottleneck_size, 
-                                                              args.train.out_feature_size,
+                                                              args.train.EMG.feature_size,
                                                               resume_from=args.last_model)
     
     if args.action == "train":

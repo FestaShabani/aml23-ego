@@ -21,8 +21,10 @@ train:
   lr_steps: 50 # steps before reducing learning rate
   eval_freq: 50 # evaluation frequency
   num_clips: 10 # clips adopted in training
-  in_feature_size: 1024
-  out_feature_size: 1664
+  EMG:
+    feature_size: 1664
+  RGB:
+    feature_size: 1024
   bottleneck_size: 256
 
 save: 
