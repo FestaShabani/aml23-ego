@@ -4,10 +4,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 
-class TRN(torch.nn.Module):
+class TRN_mod(torch.nn.Module):
     # relation module in multi-scale with a classifier at the end
     def __init__(self, num_input, num_classes, num_frames):
-        super(TRN, self).__init__()
+        super(TRN_mod, self).__init__()
         self.subsample_num = 3 # how many relations selected to sum up
         self.img_feature_dim = num_input
         self.scales = [i for i in range(num_frames, 1, -1)] #
