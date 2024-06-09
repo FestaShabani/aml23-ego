@@ -1,3 +1,5 @@
+resume_from: ./saved_models/I3D_SourceOnlyD1
+
 action: "train_and_save" # train or test
 name: ??? # name of the experiment needed for the logs
 modality: ["EMG", "RGB"] # modality used
