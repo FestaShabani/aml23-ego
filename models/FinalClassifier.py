@@ -1,5 +1,6 @@
 from torch import nn
 import torch
+import numpy as np
 
 class Classifier(nn.Module):
     def __init__(self, num_classes):
