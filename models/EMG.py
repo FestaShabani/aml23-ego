@@ -23,6 +23,7 @@ class LeNet5(nn.Module):
         #print(x.shape)
         #lsls
         features = torch.flatten(x,1)
+        features = F.dropout(features, p=0.5, training=self.training)
         logits = F.relu(self.fc1(features))
         logits = self.fc2(logits)
         return logits, {"features" : features}
