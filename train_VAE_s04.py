@@ -248,7 +248,7 @@ def reconstruct(autoencoder, dataloader, device, split=None, filename='test'):
                 'video_name': video_name
             })
     try:
-        with open(os.path.join(f'./saved_features/reconstructed_EMG_{filename}', f"{'ActionNet'}_{split}.pkl"), "wb") as file:
+        with open(os.path.join(f'./extracted_features', f"{'ActionNet'}_D1_{split}.pkl"), "wb") as file:
             pickle.dump(result, file)
         logger.info(f"Saved {'ActionNet'}_{split}.pkl")
     except Exception as e:

@@ -9,7 +9,6 @@ batch_size: 32 # batch size for the forward
 
 gpus: null # gpus adopted
 wandb_name: "EMG-RGB-VAE" # needed for wandb logging
-resume_from: null # checkpoint directory
 logname: null # name of the logs
 models_dir: null # directory containing all the models
 split: null
