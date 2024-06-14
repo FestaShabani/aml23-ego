@@ -55,7 +55,7 @@ dataset:
 
 models: # models adopted              # Model for each modality
   EMG:
-    model: LeNet5  # model name
+    model: CNN  # model name
     dropout: 0.5                      # dropout adopted   
     normalize: False                  # normalization adopted         
     transform: False                  # transformation adopted        
