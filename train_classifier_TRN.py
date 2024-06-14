@@ -63,35 +63,7 @@ def main():
                                                 args.total_batch, args.models_dir, num_classes,
                                                 args.train.num_clips, args.models, args=args)
     action_classifier.load_on_gpu(device)
-    """ 
-    #regarding models
-    # models will contain an Instantiated Model: An MLP model with input dimension 1024, output dimension 8, and 5 clips.
-    Modality 'RGB':
-    Model Name: 'MLP'
-    Input Dimension: 1024
-    Number of Classes: 8
-    Number of Clips: 5
-    Instantiated Model: An MLP model with input dimension 1024, output dimension 8, and 5 clips.
 
-    #regarding action classifier
-    Task Name: Action Recognition Classifier
-    Model:
-    Model Type: Multi-Layer Perceptron (MLP)
-    Modality: RGB
-    Input Dimension: 1024
-    Number of Classes: 8
-    Number of Clips: 5
-    Batch Size: 32
-    Total Batch Size: 128 (Simulated via gradient accumulation)
-    Models Directory: saved_models/saved_feat_I3D/Apr18_15-38-16
-    Number of Clips in Training: 5
-    Model-Specific Arguments:
-    Learning Rate: 0.01
-    Learning Rate Steps: 3000
-    SGD Momentum: 0.9
-    Weight Decay: 1e-07
-    
-    """
     if args.action == "train":
         # resume_from argument is adopted in case of restoring from a checkpoint
         if args.resume_from is not None:
